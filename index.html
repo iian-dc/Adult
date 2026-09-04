@@ -1,25 +1,21 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Visor Papá</title><style>body{margin:0;background:#000;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;height:100vh}video{flex:1;background:#111;width:100%;object-fit:cover}#ct{background:#1c1c1c;padding:14px;border-radius:18px 18px 0 0}input{width:100%;height:46px;border-radius:10px;border:0;padding:0 12px;box-sizing:border-box;font-weight:700}button{width:100%;height:50px;border-radius:12px;border:0;font-weight:900;margin-top:8px}#bar{height:12px;background:#333;border-radius:10px;overflow:hidden;margin:8px 0}#fill{height:100%;width:0%;background:#22c55e}</style></head><body>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Visor Auto</title>
+<style>body{margin:0;background:#000;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;height:100vh}video{flex:1;background:#111;width:100%}#ct{padding:12px;background:#1c1c1c}</style></head>
+<body>
 <video id="remote" autoplay playsinline controls></video>
-<div id="ct"><input id="sala" placeholder="Código: sala_xxxx"><div id="bar"><div id="fill"></div></div><div id="msg" style="text-align:center;font-size:12px">Escribe el código y conecta</div><button onclick="conectar()" style="background:#fff;color:#000">VER A MI BEBÉ</button></div>
+<div id="ct"><div id="msg">Conectando...</div><div id="bar" style="height:10px;background:#333;border-radius:6px;margin-top:8px"><div id="fill" style="height:100%;width:0%;background:#22c55e"></div></div></div>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
 <script>
 const firebaseConfig = { apiKey:"AIzaSyDvetl-4f68ykb5GpGSZtCAvOeetKmnh-4", authDomain:"menu-digital-12e66.firebaseapp.com", databaseURL:"https://menu-digital-12e66-default-rtdb.firebaseio.com", projectId:"menu-digital-12e66", appId:"1:388372771516:web:516a80aeeecc1ab8f756b9"};
 firebase.initializeApp(firebaseConfig); const rdb=firebase.database();
-let pc;
-async function conectar(){
- const salaId=document.getElementById('sala').value.trim(); if(!salaId) return alert('Escribe el código');
- const ref=rdb.ref('kigo_baby_test/'+salaId); const snap=await ref.child('offer').get(); if(!snap.exists()) return alert('Código no encontrado, inicia primero la cámara');
- pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
- pc.ontrack=e=>{document.getElementById('remote').srcObject=e.streams[0]; detectar(e.streams[0]);};
+async function conectar(salaId){
+ const ref=rdb.ref('kigo_baby_test/'+salaId); const snap=await ref.child('offer').get(); if(!snap.exists()){document.getElementById('msg').innerText="Cámara no iniciada"; return;}
+ let pc=new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+ pc.ontrack=e=>{document.getElementById('remote').srcObject=e.streams[0]; document.getElementById('msg').innerText="Conectado a "+salaId;};
  pc.onicecandidate=e=>{if(e.candidate) ref.child('answerer').push(e.candidate.toJSON());};
  await pc.setRemoteDescription(snap.val()); const ans=await pc.createAnswer(); await pc.setLocalDescription(ans); await ref.child('answer').set({type:ans.type,sdp:ans.sdp});
  ref.child('caller').on('child_added',async s=>{await pc.addIceCandidate(new RTCIceCandidate(s.val()));});
- document.getElementById('msg').innerText="Conectado...";
 }
-function detectar(stream){
- const ctx=new AudioContext(); const src=ctx.createMediaStreamSource(stream); const an=ctx.createAnalyser(); an.fftSize=256; src.connect(an); const d=new Uint8Array(an.frequencyBinCount);
- setInterval(()=>{an.getByteFrequencyData(d); let p=d.reduce((a,b)=>a+b,0)/d.length; let porc=Math.min(100,p*1.8); document.getElementById('fill').style.width=porc+'%'; document.getElementById('fill').style.background=porc>70?'#ef4444':'#22c55e'; document.getElementById('msg').innerText=porc>70?'¡BEBÉ LLORANDO! 🔔':'Todo tranquilo '+Math.round(porc)+'%'; if(porc>75&&navigator.vibrate) navigator.vibrate([300,100,300]);},300);
-}
+const p=new URLSearchParams(location.search); const ver=p.get('ver'); if(ver) conectar(ver.toLowerCase());
 </script></body></html>
